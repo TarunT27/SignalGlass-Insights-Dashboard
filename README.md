@@ -189,7 +189,3 @@ The repository includes the visual exploration used to guide the implementation:
 ## Responsible use
 
 SignalGlass is an engineering and product-design demonstration. It is not investment advice, does not execute trades, and should not be used as the sole basis for financial decisions.
-
-## Resume-ready description
-
-> Built SignalGlass, an explainable Python/Streamlit market-research platform that compares linear, ridge, and random-forest signals with leakage-free walk-forward testing and reports every result against a naive baseline with Wilson confidence intervals; added transaction-cost-aware backtesting, Sharpe/drawdown analysis, a 175-phrase finance sentiment engine with negation handling and per-headline evidence, persistent portfolio analytics, and a versioned JSON handoff for a C++ execution simulator.
