@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from datetime import date, datetime
 
 _MAX_TICKER_LENGTH = 20
-_TICKER_PATTERN = re.compile(r"\^?[A-Z0-9][A-Z0-9.=-]*(?:-[A-Z0-9.=-]+)*\Z")
+_TICKER_PATTERN = re.compile(r"\^?[A-Z0-9][A-Z0-9.=-]*\Z")
 
 
 def validate_ticker(raw_ticker: object) -> str:
