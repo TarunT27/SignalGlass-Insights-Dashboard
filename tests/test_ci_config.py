@@ -7,6 +7,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def test_github_actions_uses_supported_locked_toolchain() -> None:
     workflow = (ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     development_requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
+    runtime_requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+    lock_text = (ROOT / "requirements-lock.txt").read_text(encoding="utf-8")
     lock_path = ROOT / "requirements-lock.txt"
 
     python_match = re.search(r'python-version:\s*["\'](\d+)\.(\d+)["\']', workflow)
@@ -22,4 +24,6 @@ def test_github_actions_uses_supported_locked_toolchain() -> None:
     assert "python -m ruff format --check ." in workflow
     assert "python -m pip_audit -r requirements-lock.txt" in workflow
     assert lock_path.is_file()
-    assert "--hash=sha256:" in lock_path.read_text(encoding="utf-8")
+    assert "--hash=sha256:" in lock_text
+    assert "gitpython==3.1.59" in runtime_requirements
+    assert "gitpython==3.1.59" in lock_text
