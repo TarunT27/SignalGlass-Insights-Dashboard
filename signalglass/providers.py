@@ -27,6 +27,9 @@ except ImportError:  # pragma: no cover - dependency is optional for demo mode
 
 
 _REQUIRED_PRICE_FIELDS = ("Open", "High", "Low", "Close", "Volume")
+# NewsAPI's free and developer plans reject searches that start more than about a
+# month in the past, so every range longer than that used to fall back to demo news.
+NEWSAPI_MAX_LOOKBACK_DAYS = 29
 
 
 def _select_multiindex_columns(frame: pd.DataFrame, ticker: str) -> pd.DataFrame:
@@ -107,25 +110,33 @@ def normalize_price_frame(raw_frame: pd.DataFrame, ticker: object) -> pd.DataFra
 
 
 @lru_cache(maxsize=256)
+def _lookup_company_name(ticker: str) -> str:
+    """Cached provider lookup. Raising keeps transient failures out of the cache."""
+
+    info = yf.Ticker(ticker).get_info()
+    for field in ("shortName", "longName", "displayName"):
+        candidate = str(info.get(field) or "").strip()
+        if candidate:
+            return candidate
+    return ticker
+
+
 def resolve_company_name(ticker: str) -> str:
     """Look up a display name for any symbol, degrading to the ticker itself.
 
-    The lookup is cached for the process lifetime and never raises: a company
-    label is cosmetic, so a slow or unavailable provider must not break a render.
+    Successful lookups are cached for the process lifetime. The function never
+    raises: a company label is cosmetic, so a slow or unavailable provider must
+    not break a render. A failed lookup is not cached, so a brief outage does not
+    leave a bare ticker on screen until the process restarts.
     """
 
     demo_name = demo_company_name(ticker)
     if demo_name:
         return demo_name
     try:
-        info = yf.Ticker(ticker).get_info()
-        for field in ("shortName", "longName", "displayName"):
-            candidate = str(info.get(field) or "").strip()
-            if candidate:
-                return candidate
+        return _lookup_company_name(ticker)
     except Exception:
         return ticker
-    return ticker
 
 
 @lru_cache(maxsize=64)
@@ -263,8 +274,9 @@ def fetch_market_bundle(
         )
 
     if normalized_news_key:
+        news_start = max(start, end - timedelta(days=NEWSAPI_MAX_LOOKBACK_DAYS))
         try:
-            news = _fetch_live_news(symbol, start, end, normalized_news_key)
+            news = _fetch_live_news(symbol, news_start, end, normalized_news_key)
         except Exception as error:
             demo = load_demo_bundle(symbol, demo_days, end_date=end)
             news = demo.news.copy(deep=True)
@@ -301,6 +313,7 @@ def fetch_market_bundle(
 
 
 __all__ = [
+    "NEWSAPI_MAX_LOOKBACK_DAYS",
     "fetch_market_bundle",
     "load_demo_bundle",
     "normalize_price_frame",

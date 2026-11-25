@@ -63,3 +63,11 @@ def test_local_research_store_rejects_unsafe_symbols(tmp_path) -> None:
 
     with pytest.raises(ValueError):
         store.replace_watchlist(["AAPL<script>"])
+
+
+def test_portfolio_drawdown_counts_a_loss_from_starting_capital() -> None:
+    prices = {"AAPL": _prices(100, [-0.10, -0.05, 0.02])}
+
+    result = analyze_portfolio(prices, {"AAPL": 1})
+
+    assert result.max_drawdown == pytest.approx(0.855 - 1.0)

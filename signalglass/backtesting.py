@@ -78,6 +78,17 @@ def _validated_predictions(predictions: pd.DataFrame) -> pd.DataFrame:
     return frame
 
 
+def _drawdown(equity: pd.Series) -> pd.Series:
+    """Drawdown from the running peak, counting the starting capital of 1.0 as a peak.
+
+    Without the starting capital, a loss on the very first session would be
+    invisible: the first equity value would become the peak.
+    """
+
+    running_peak = equity.cummax().clip(lower=1.0)
+    return equity.div(running_peak).sub(1.0)
+
+
 def _annualized_return(total_return: float, observations: int, annualization: int) -> float:
     ending_value = max(1.0 + total_return, np.finfo(float).eps)
     return float(ending_value ** (annualization / observations) - 1.0)
@@ -118,7 +129,7 @@ def run_backtest(
         if daily_std > 0 and np.isfinite(daily_std)
         else 0.0
     )
-    drawdown = frame["strategy_equity"].div(frame["strategy_equity"].cummax()).sub(1.0)
+    drawdown = _drawdown(frame["strategy_equity"])
     active = frame.loc[frame["signal"].ne(0), "strategy_return"]
     win_rate = float(active.gt(0).mean()) if not active.empty else 0.0
     metrics = BacktestMetrics(
