@@ -122,7 +122,8 @@ def test_invalid_custom_symbol_is_rejected_without_replacing_last_valid_selectio
 
     recovered_copy = _rendered_copy(app)
     assert "Enter a valid Yahoo Finance ticker" not in recovered_copy
-    assert app.query_params["symbol"] == ["MSFT"]
+    # Streamlit's AppTest returned query values as lists before 1.66 and as strings since.
+    assert app.query_params["symbol"] in ("MSFT", ["MSFT"])
 
 
 def test_custom_symbol_uses_keyless_yahoo_prices_and_dynamic_comparison_peers(
