@@ -4,7 +4,7 @@
 
 [![CI](https://github.com/TarunT27/SignalGlass-Insights-Dashboard/actions/workflows/ci.yml/badge.svg)](https://github.com/TarunT27/SignalGlass-Insights-Dashboard/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/Python-3.12%2B-3776AB?logo=python&logoColor=white)
-![Streamlit](https://img.shields.io/badge/Streamlit-1.59-FF4B4B?logo=streamlit&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.67-FF4B4B?logo=streamlit&logoColor=white)
 ![Coverage](https://img.shields.io/badge/branch_coverage-89%25-30D158)
 
 SignalGlass is an explainable market-intelligence and strategy-research cockpit. It combines Yahoo Finance price history, finance-domain headline sentiment, chronological model comparison, cost-aware backtesting, portfolio-risk analysis, and a C++-ready execution-signal export in a polished Streamlit application.
@@ -29,7 +29,7 @@ The default experience is deterministic and works immediately. Switch to **Live*
 - **Research-to-execution handoff** — prediction-only JSON follows a versioned schema designed for integration with the companion C++ trading simulator; realized returns are deliberately excluded.
 - **Resilient data provenance** — price and news sources are tracked independently, so a missing or failed news provider cannot silently mislabel the experience.
 - **Traceable sources** — every headline links to its origin, with untrusted URLs filtered to http(s) before they reach the page.
-- **Recruiter-friendly setup** — deterministic demo data, pinned dependencies, CI, linting, 133 automated tests, and 80% coverage enforcement.
+- **Recruiter-friendly setup** — deterministic demo data, pinned dependencies, CI, linting, 145 automated tests, and 80% coverage enforcement.
 
 ## Product tour
 
@@ -89,6 +89,8 @@ SIGNALGLASS_DATA_MODE=live
 ```
 
 If NewsAPI is unavailable, SignalGlass continues with live Yahoo prices plus clearly identified demo headlines. Secrets are never committed.
+
+Headlines are searched by the security's plain name as well as its symbol (for example `"Apple" OR AAPL`, or `"Bitcoin" OR BTC`). NewsAPI's free and developer plans only search about a month back, so SignalGlass requests at most the last 29 days of headlines for every history range; prices still cover the full range.
 
 Portfolio preferences default to `.signalglass/signalglass.db`. Override the local path when needed:
 

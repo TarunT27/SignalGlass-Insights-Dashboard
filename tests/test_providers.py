@@ -145,7 +145,7 @@ def test_fetch_market_bundle_returns_normalized_live_prices_and_news(
             assert api_key == "test-key"
 
         def get_everything(self, **kwargs):
-            assert kwargs["q"] == "AAPL"
+            assert kwargs["q"] == '"Apple" OR AAPL'
             return {
                 "articles": [
                     {
@@ -299,3 +299,19 @@ def test_company_name_lookup_failures_are_not_cached(monkeypatch: pytest.MonkeyP
     assert providers.resolve_company_name("SGTEST") == "SignalGlass Test Corp"
     assert calls["count"] == 2
     providers._lookup_company_name.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("ticker", "company", "expected"),
+    [
+        ("AAPL", "Apple Inc.", '"Apple" OR AAPL'),
+        ("TSLA", "Tesla, Inc.", '"Tesla" OR TSLA'),
+        ("BTC-USD", "Bitcoin USD", '"Bitcoin" OR BTC'),
+        ("^GSPC", "S&P 500 Index", '"S&P 500" OR GSPC'),
+        ("SPY", "SPDR S&P 500 ETF Trust", '"SPDR S&P 500" OR SPY'),
+        ("ZZQX", "ZZQX", "ZZQX"),
+        ("ZZQX", "", "ZZQX"),
+    ],
+)
+def test_news_query_searches_for_the_name_headlines_actually_use(ticker, company, expected) -> None:
+    assert providers_module().build_news_query(ticker, company) == expected

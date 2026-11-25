@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 from functools import lru_cache
 from typing import Any
@@ -178,11 +179,37 @@ def load_demo_bundle(
     )
 
 
-def _fetch_live_news(ticker: str, start_date: date, end_date: date, api_key: str) -> pd.DataFrame:
+_NAME_SUFFIX = re.compile(
+    r"(?:,?\s+(?:inc|corp|corporation|co|company|ltd|plc|holdings?|group|etf|trust|index|usd|class [a-z])\.?)+\Z",
+    re.IGNORECASE,
+)
+
+
+def build_news_query(ticker: str, company: str = "") -> str:
+    """Build a NewsAPI search that matches how headlines name the security.
+
+    Headlines say "Apple" or "Bitcoin" far more often than "AAPL" or "BTC-USD",
+    and index symbols such as ``^GSPC`` never appear in prose. The query searches
+    for the plain name as a phrase, or the bare symbol.
+    """
+
+    symbol = validate_ticker(ticker)
+    bare_symbol = symbol.lstrip("^").removesuffix("-USD")
+    terms: list[str] = []
+    name = _NAME_SUFFIX.sub("", str(company or "")).strip().replace('"', "")
+    if name and name.upper() not in {symbol, bare_symbol}:
+        terms.append(f'"{name}"')
+    terms.append(bare_symbol)
+    return " OR ".join(terms)
+
+
+def _fetch_live_news(
+    ticker: str, start_date: date, end_date: date, api_key: str, *, company: str = ""
+) -> pd.DataFrame:
     if NewsApiClient is None:
         raise RuntimeError("NewsAPI client is unavailable")
     response = NewsApiClient(api_key=api_key).get_everything(
-        q=ticker,
+        q=build_news_query(ticker, company),
         from_param=start_date.isoformat(),
         to=end_date.isoformat(),
         language="en",
@@ -273,10 +300,11 @@ def fetch_market_bundle(
             company=fallback.company,
         )
 
+    company = resolve_company_name(symbol)
     if normalized_news_key:
         news_start = max(start, end - timedelta(days=NEWSAPI_MAX_LOOKBACK_DAYS))
         try:
-            news = _fetch_live_news(symbol, news_start, end, normalized_news_key)
+            news = _fetch_live_news(symbol, news_start, end, normalized_news_key, company=company)
         except Exception as error:
             demo = load_demo_bundle(symbol, demo_days, end_date=end)
             news = demo.news.copy(deep=True)
@@ -308,12 +336,13 @@ def fetch_market_bundle(
         notice=notice,
         price_source="Yahoo Finance live prices",
         news_source=news_source,
-        company=resolve_company_name(symbol),
+        company=company,
     )
 
 
 __all__ = [
     "NEWSAPI_MAX_LOOKBACK_DAYS",
+    "build_news_query",
     "fetch_market_bundle",
     "load_demo_bundle",
     "normalize_price_frame",
