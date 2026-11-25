@@ -11,5 +11,3 @@ htmlcov/
 .signalglass/
 .audit-cache/
 .test_tmp/
-.venv/
-.signalglass/

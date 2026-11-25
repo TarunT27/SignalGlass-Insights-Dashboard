@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date, timedelta
 from importlib import import_module
 
 import pandas as pd
@@ -144,7 +145,7 @@ def test_fetch_market_bundle_returns_normalized_live_prices_and_news(
             assert api_key == "test-key"
 
         def get_everything(self, **kwargs):
-            assert kwargs["q"] == "AAPL"
+            assert kwargs["q"] == '"Apple" OR AAPL'
             return {
                 "articles": [
                     {
@@ -251,3 +252,66 @@ def test_prefer_live_prices_falls_back_atomically_when_yfinance_fails(
     assert bundle.is_demo is True
     assert not bundle.prices.empty
     assert "TimeoutError" in str(bundle.notice)
+
+
+def test_newsapi_search_stays_inside_the_plan_lookback_window(monkeypatch: pytest.MonkeyPatch) -> None:
+    providers = providers_module()
+    monkeypatch.setattr(providers.yf, "download", lambda *args, **kwargs: _flat_live_price_frame())
+    requested: dict[str, str] = {}
+
+    class StubNewsClient:
+        def __init__(self, api_key: str) -> None:
+            pass
+
+        def get_everything(self, **kwargs):
+            requested.update(kwargs)
+            return {"articles": []}
+
+    monkeypatch.setattr(providers, "NewsApiClient", StubNewsClient)
+    end = date(2025, 6, 30)
+
+    bundle = providers.fetch_market_bundle("AAPL", date(2024, 6, 30), end, newsapi_key="test-key")
+
+    assert requested["from_param"] == (end - timedelta(days=providers.NEWSAPI_MAX_LOOKBACK_DAYS)).isoformat()
+    assert requested["to"] == end.isoformat()
+    assert bundle.news_source == "NewsAPI live headlines"
+
+
+def test_company_name_lookup_failures_are_not_cached(monkeypatch: pytest.MonkeyPatch) -> None:
+    providers = providers_module()
+    providers._lookup_company_name.cache_clear()
+    calls = {"count": 0}
+
+    class FlakyTicker:
+        def __init__(self, symbol: str) -> None:
+            pass
+
+        def get_info(self):
+            calls["count"] += 1
+            if calls["count"] == 1:
+                raise TimeoutError("upstream timed out")
+            return {"shortName": "SignalGlass Test Corp"}
+
+    monkeypatch.setattr(providers.yf, "Ticker", FlakyTicker)
+
+    assert providers.resolve_company_name("SGTEST") == "SGTEST"
+    assert providers.resolve_company_name("SGTEST") == "SignalGlass Test Corp"
+    assert providers.resolve_company_name("SGTEST") == "SignalGlass Test Corp"
+    assert calls["count"] == 2
+    providers._lookup_company_name.cache_clear()
+
+
+@pytest.mark.parametrize(
+    ("ticker", "company", "expected"),
+    [
+        ("AAPL", "Apple Inc.", '"Apple" OR AAPL'),
+        ("TSLA", "Tesla, Inc.", '"Tesla" OR TSLA'),
+        ("BTC-USD", "Bitcoin USD", '"Bitcoin" OR BTC'),
+        ("^GSPC", "S&P 500 Index", '"S&P 500" OR GSPC'),
+        ("SPY", "SPDR S&P 500 ETF Trust", '"SPDR S&P 500" OR SPY'),
+        ("ZZQX", "ZZQX", "ZZQX"),
+        ("ZZQX", "", "ZZQX"),
+    ],
+)
+def test_news_query_searches_for_the_name_headlines_actually_use(ticker, company, expected) -> None:
+    assert providers_module().build_news_query(ticker, company) == expected

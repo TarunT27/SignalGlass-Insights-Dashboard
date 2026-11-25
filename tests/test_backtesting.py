@@ -85,3 +85,18 @@ def test_execution_export_excludes_realized_returns_and_uses_stable_schema(predi
 def test_backtest_config_rejects_unsafe_values(kwargs, message) -> None:
     with pytest.raises(ValueError, match=message):
         BacktestConfig(**kwargs)
+
+
+def test_backtest_drawdown_counts_a_loss_from_starting_capital() -> None:
+    losing_start = pd.DataFrame(
+        {
+            "date": pd.bdate_range("2026-01-05", periods=3),
+            "actual_return": [-0.10, -0.05, 0.02],
+            "predicted_return": [0.01, 0.01, 0.01],
+        }
+    )
+
+    result = run_backtest(losing_start, config=BacktestConfig(transaction_cost_bps=0))
+
+    # Equity runs 1.0 -> 0.90 -> 0.855 -> 0.8721, so the worst point is 14.5% below start.
+    assert result.metrics.max_drawdown == pytest.approx(0.855 - 1.0)

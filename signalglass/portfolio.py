@@ -94,7 +94,9 @@ def analyze_portfolio(
         if daily_std > 0 and np.isfinite(daily_std)
         else 0.0
     )
-    drawdown = timeline["portfolio_equity"].div(timeline["portfolio_equity"].cummax()).sub(1.0)
+    # The starting capital of 1.0 is the first peak, so a first-session loss counts.
+    running_peak = timeline["portfolio_equity"].cummax().clip(lower=1.0)
+    drawdown = timeline["portfolio_equity"].div(running_peak).sub(1.0)
 
     covariance = returns.cov().to_numpy(dtype="float64")
     marginal = covariance @ weight_vector
